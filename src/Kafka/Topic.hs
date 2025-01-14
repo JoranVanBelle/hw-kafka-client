@@ -1,9 +1,7 @@
-module Kafka.Admin(
+module Kafka.Topic(
 module X
-, newKAdmin
 , createTopic
 , deleteTopic
-, closeKAdmin
 ) where
 
 import Control.Monad
@@ -17,28 +15,12 @@ import Kafka.Internal.RdKafka
 import Kafka.Internal.Setup
 
 import Kafka.Types as X
-import Kafka.Admin.AdminProperties as X
-import Kafka.Admin.Types as X
+import Kafka.Topic.Types as X
 
-newKAdmin ::( MonadIO m )
-          => AdminProperties      
-          -> m (Either KafkaError KAdmin)
-newKAdmin properties = liftIO $ do
-  kafkaConfig@(KafkaConf kafkaConf' _ _) <- kafkaConf ( KafkaProps $ adminProps properties)
-  maybeKafka <- newRdKafkaT RdKafkaConsumer kafkaConf'
-  case maybeKafka of
-    Left err -> pure $ Left $ KafkaError err
-    Right kafka -> pure $ Right $ KAdmin (Kafka kafka) kafkaConfig
-
-closeKAdmin :: KAdmin 
-               -> IO ()
-closeKAdmin ka = void $ rdKafkaConsumerClose (getRdKafka ka)
 --- CREATE TOPIC ---
-createTopic :: KAdmin
-              -> NewTopic
-              -> IO (Either KafkaError TopicName)
-createTopic kAdmin topic = liftIO $ do
-  let kafkaPtr = getRdKafka kAdmin
+createTopic :: HasKafka k => k -> NewTopic -> IO (Either KafkaError TopicName)
+createTopic k topic = do
+  let kafkaPtr = getRdKafka k
   queue <- newRdKafkaQueue kafkaPtr
   opts <- newRdKAdminOptions kafkaPtr RdKafkaAdminOpAny 
 
@@ -50,11 +32,12 @@ createTopic kAdmin topic = liftIO $ do
       pure $ Right $ topicName topic
 
 --- DELETE TOPIC ---
-deleteTopic :: KAdmin
+deleteTopic :: HasKafka k
+              => k
               -> TopicName
               -> IO (Either KafkaError TopicName)
-deleteTopic kAdmin topic = liftIO $ do
-  let kafkaPtr = getRdKafka kAdmin
+deleteTopic k topic = liftIO $ do
+  let kafkaPtr = getRdKafka k
   queue <- newRdKafkaQueue kafkaPtr
   opts <- newRdKAdminOptions kafkaPtr RdKafkaAdminOpAny
 
